@@ -27,6 +27,7 @@ working agent that can clear World 1-1.
 | **Action space** | `SIMPLE_MOVEMENT` (7 discrete actions: NOOP, right, right+A, right+B, right+A+B, A, left) via `JoypadSpace` wrapper |
 | **Observation** | 240 × 256 × 3 RGB frames |
 | **Reward** | Built-in shaped reward (positive for moving right, penalty for dying / time) |
+| **Environment Constraints** | `gym==0.25.2` (avoids deprecated setup.py build crash), `stable-baselines3==1.8.0` (compatible with 4-variable step API) |
 
 ### Wrappers (applied in order)
 
@@ -212,25 +213,23 @@ for episode in range(num_episodes):
 
 ---
 
-## 6. Dependencies
+## 6. Dependencies & Environment Constraints
 
 ```
 # requirements.txt
+gym==0.25.2                    # Gym API (0.25.2 avoids deprecated setup.py build crash on modern Python)
 gym-super-mario-bros==7.4.0    # Mario environment
-nes-py==8.2.1                  # NES emulator backend
-gymnasium>=0.26                # Gym API (compat layer)
-torch>=2.0                     # Neural network framework
-torchvision>=0.15              # Image transforms (optional)
-numpy>=1.24
-tensorboard>=2.12              # Training visualization
-matplotlib>=3.7                # Plotting
-imageio[ffmpeg]>=2.28          # Video recording
-tqdm>=4.65                     # Progress bars
+nes-py                         # NES emulator backend
+stable-baselines3==1.8.0       # RL library (compatible with 4-variable step API)
+opencv-python                  # Image transforms / preprocessing
+torch                          # Neural network framework
+tensorboard                    # Training visualization
 ```
 
-> **Note on compatibility**: `gym-super-mario-bros` uses the old `gym` API (not
-> `gymnasium`). You may need a compatibility shim or pin `gym==0.26.2`. Test this
-> early — env compatibility issues are the #1 time sink in RL projects.
+> **Note on compatibility & environment constraints**: `gym-super-mario-bros` uses the old `gym` API (not
+> `gymnasium`) with the classic 4-variable step API (`obs, reward, done, info`). Pin `gym==0.25.2` to bypass
+> the deprecated `setup.py` build crash on modern Python, and pin `stable-baselines3==1.8.0` to ensure
+> compatibility with this 4-variable step format without requiring shims.
 
 ---
 
