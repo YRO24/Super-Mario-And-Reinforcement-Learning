@@ -27,7 +27,7 @@ working agent that can clear World 1-1.
 | **Action space** | `SIMPLE_MOVEMENT` (7 discrete actions: NOOP, right, right+A, right+B, right+A+B, A, left) via `JoypadSpace` wrapper |
 | **Observation** | 240 × 256 × 3 RGB frames |
 | **Reward** | Built-in shaped reward (positive for moving right, penalty for dying / time) |
-| **Environment Constraints** | `gym==0.25.2` (avoids deprecated setup.py build crash), `stable-baselines3==1.8.0` (compatible with 4-variable step API) |
+| **Environment Constraints** | `gym==0.21.0`, `stable-baselines3==1.8.0` (compatible with 4-variable step API) |
 
 ### Wrappers (applied in order)
 
@@ -217,7 +217,7 @@ for episode in range(num_episodes):
 
 ```
 # requirements.txt
-gym==0.25.2                    # Gym API (0.25.2 avoids deprecated setup.py build crash on modern Python)
+gym==0.21.0                    # Gym API (pinned by gym-super-mario-bros)
 gym-super-mario-bros==7.4.0    # Mario environment
 nes-py                         # NES emulator backend
 stable-baselines3==1.8.0       # RL library (compatible with 4-variable step API)
@@ -227,9 +227,15 @@ tensorboard                    # Training visualization
 ```
 
 > **Note on compatibility & environment constraints**: `gym-super-mario-bros` uses the old `gym` API (not
-> `gymnasium`) with the classic 4-variable step API (`obs, reward, done, info`). Pin `gym==0.25.2` to bypass
-> the deprecated `setup.py` build crash on modern Python, and pin `stable-baselines3==1.8.0` to ensure
-> compatibility with this 4-variable step format without requiring shims.
+> `gymnasium`) with the classic 4-variable step API (`obs, reward, done, info`). Pin `gym==0.21.0` and
+> `stable-baselines3==1.8.0` to ensure direct compatibility with this 4-variable step format without requiring shims.
+
+### Installation Guide (Windows & Kaggle)
+
+To bypass build errors:
+
+Step 1: pip install setuptools==65.5.0 wheel==0.38.4
+Step 2: pip install -r requirements.txt --no-build-isolation
 
 ---
 

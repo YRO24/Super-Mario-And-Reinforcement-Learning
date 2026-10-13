@@ -1,4 +1,4 @@
-gym==0.25.2
+gym==0.21.0
 gym-super-mario-bros==7.4.0
 nes-py
 stable-baselines3==1.8.0
