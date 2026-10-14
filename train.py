@@ -31,7 +31,6 @@ from torch.nn import functional as F
 
 from stable_baselines3 import DQN, PPO, A2C
 from stable_baselines3.common.callbacks import CheckpointCallback
-from stable_baselines3.common.utils import polyak_update
 
 from env_setup import make_env
 
@@ -70,8 +69,6 @@ class DoubleDQN(DQN):
         # Update learning rate according to schedule (omitting this was a bug)
         self._update_learning_rate([self.policy.optimizer])
 
-        if not hasattr(self, "_n_calls"):
-            self._n_calls = 0
 
         losses = []
 
@@ -115,14 +112,7 @@ class DoubleDQN(DQN):
             )
             self.policy.optimizer.step()
 
-            # --- Target network sync -------------------------------------
-            # Increment step counter so the target network weights sync
-            # every target_update_interval steps.
-            self._n_calls += 1
             self._n_updates += 1
-            if self._n_calls % self.target_update_interval == 0:
-                from stable_baselines3.common.utils import polyak_update
-                polyak_update(self.q_net.parameters(), self.q_net_target.parameters(), 1.0)
 
         # --- Bookkeeping (matches SB3's DQN.train() logging) -------------
         self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")

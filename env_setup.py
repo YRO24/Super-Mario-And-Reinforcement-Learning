@@ -19,8 +19,10 @@ Note on wrapper ordering:
 """
 
 import gym
+import gymnasium
 import numpy as np
 from gym import spaces
+import gymnasium.spaces as gym_spaces
 
 import gym_super_mario_bros
 from nes_py.wrappers import JoypadSpace
@@ -57,6 +59,9 @@ class SkipFrame(gym.Wrapper):
         self._skip = skip
 
     def step(self, action):
+        # Cast to Python int to prevent nes-py OverflowError on 64-bit
+        # Windows where numpy int64 exceeds the C int range.
+        action = int(action)
         total_reward = 0.0
         for _ in range(self._skip):
             obs, reward, done, info = self.env.step(action)
@@ -127,6 +132,51 @@ class ResizeObservation(gym.ObservationWrapper):
         return resized.astype(np.uint8)
 
 
+class GymnasiumBridge(gymnasium.Env):
+    """Lightweight adapter: old-style ``gym.Env`` → ``gymnasium.Env``.
+
+    SB3 ≥ 2.x requires environments that follow the Gymnasium API
+    (5-tuple ``step``, 2-tuple ``reset``).  ``gym-super-mario-bros``
+    still exposes the legacy 4-tuple interface, so this wrapper
+    translates between the two without copying observation data.
+
+    Conversion rules
+    ~~~~~~~~~~~~~~~~
+    * ``reset()`` → ``(obs, {})``
+    * ``step(a)`` → ``(obs, float(reward), bool(done), False, info)``
+
+    The ``truncated`` field is always ``False`` because NES episodes
+    end only on terminal game-over (never time-limited truncation).
+    """
+
+    def __init__(self, env: gym.Env):
+        super().__init__()
+        self.env = env
+
+        # Mirror spaces using gymnasium.spaces so SB3 type-checks pass.
+        old_obs = env.observation_space
+        self.observation_space = gym_spaces.Box(
+            low=old_obs.low, high=old_obs.high,
+            shape=old_obs.shape, dtype=old_obs.dtype,
+        )
+        old_act = env.action_space
+        self.action_space = gym_spaces.Discrete(old_act.n)
+
+    def reset(self, *, seed=None, options=None):
+        obs = self.env.reset()
+        return obs, {}
+
+    def step(self, action):
+        obs, reward, done, info = self.env.step(action)
+        return obs, float(reward), bool(done), False, info
+
+    def render(self, *args, **kwargs):
+        return self.env.render()
+
+    def close(self):
+        return self.env.close()
+
+
 # ---------------------------------------------------------------------------
 # Public factory
 # ---------------------------------------------------------------------------
@@ -173,6 +223,9 @@ def make_env() -> VecFrameStack:
         # 5. Resize: (240, 256, 1) → (84, 84, 1)
         #    Matches the input size from the Nature DQN paper
         env = ResizeObservation(env, size=84)
+
+        # 6. Bridge to gymnasium API for SB3 ≥ 2.x compatibility
+        env = GymnasiumBridge(env)
 
         return env
 
