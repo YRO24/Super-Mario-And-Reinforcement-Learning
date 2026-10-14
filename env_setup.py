@@ -30,6 +30,30 @@ import gymnasium.spaces as gym_spaces
 import gym_super_mario_bros
 from nes_py.wrappers import JoypadSpace
 from gym_super_mario_bros.actions import SIMPLE_MOVEMENT
+
+# ---------------------------------------------------------------------------
+# NumPy 2.0 compatibility patch for gym-super-mario-bros==7.4.0
+# ---------------------------------------------------------------------------
+# The original properties perform arithmetic directly on np.uint8 values read
+# from self.ram.  NumPy 2.0 tightened overflow/underflow behaviour for scalar
+# integer types, causing RuntimeErrors during subtraction (e.g. _left_x_position).
+# Casting to Python int before the math restores the expected wrapping semantics.
+# ---------------------------------------------------------------------------
+from gym_super_mario_bros.smb_env import SuperMarioBrosEnv
+
+SuperMarioBrosEnv._x_position = property(
+    lambda self: int(self.ram[0x6d]) * 0x100 + int(self.ram[0x86])
+)
+SuperMarioBrosEnv._left_x_position = property(
+    lambda self: (int(self.ram[0x86]) - int(self.ram[0x071c])) % 256
+)
+SuperMarioBrosEnv._y_pixel = property(
+    lambda self: int(self.ram[0x03b8])
+)
+SuperMarioBrosEnv._y_viewport = property(
+    lambda self: int(self.ram[0x00b5])
+)
+
 from stable_baselines3.common.vec_env import DummyVecEnv, VecFrameStack
 
 
