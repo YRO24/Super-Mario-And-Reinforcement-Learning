@@ -3,7 +3,7 @@ gymnasium>=0.29.1
 gym-super-mario-bros==7.4.0
 nes-py
 stable-baselines3>=2.2.1
-numpy<2.0.0
+numpy
 opencv-python
 torch
 tensorboard

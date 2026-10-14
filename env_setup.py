@@ -21,6 +21,9 @@ Note on wrapper ordering:
 import gym
 import gymnasium
 import numpy as np
+# NumPy 2.0 removed np.bool8; gym 0.25.2 still references it at import time.
+if not hasattr(np, "bool8"):
+    np.bool8 = np.bool_
 from gym import spaces
 import gymnasium.spaces as gym_spaces
 
