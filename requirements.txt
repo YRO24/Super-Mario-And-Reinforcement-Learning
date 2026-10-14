@@ -1,7 +1,6 @@
-gym==0.25.2
 gymnasium>=0.29.1
-gym-super-mario-bros==7.4.0
-nes-py
+gym-super-mario-bros>=9.1.0
+nes-py>=9.0.1
 stable-baselines3>=2.2.1
 numpy
 opencv-python

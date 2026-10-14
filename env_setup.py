@@ -18,51 +18,21 @@ Note on wrapper ordering:
     This is both correct and ~4× cheaper on the preprocessing side.
 """
 
-import gym
-import gymnasium
+import gymnasium as gym
 import numpy as np
-# NumPy 2.0 removed np.bool8; gym 0.25.2 still references it at import time.
-if not hasattr(np, "bool8"):
-    np.bool8 = np.bool_
-from gym import spaces
-import gymnasium.spaces as gym_spaces
+from gymnasium import spaces
 
 import gym_super_mario_bros
 from nes_py.wrappers import JoypadSpace
 from gym_super_mario_bros.actions import SIMPLE_MOVEMENT
-
-# ---------------------------------------------------------------------------
-# NumPy 2.0 compatibility patch for gym-super-mario-bros==7.4.0
-# ---------------------------------------------------------------------------
-# The original properties perform arithmetic directly on np.uint8 values read
-# from self.ram.  NumPy 2.0 tightened overflow/underflow behaviour for scalar
-# integer types, causing RuntimeErrors during subtraction (e.g. _left_x_position).
-# Casting to Python int before the math restores the expected wrapping semantics.
-# ---------------------------------------------------------------------------
-from gym_super_mario_bros.smb_env import SuperMarioBrosEnv
-
-SuperMarioBrosEnv._x_position = property(
-    lambda self: int(self.ram[0x6d]) * 0x100 + int(self.ram[0x86])
-)
-SuperMarioBrosEnv._left_x_position = property(
-    lambda self: (int(self.ram[0x86]) - int(self.ram[0x071c])) % 256
-)
-SuperMarioBrosEnv._y_pixel = property(
-    lambda self: int(self.ram[0x03b8])
-)
-SuperMarioBrosEnv._y_viewport = property(
-    lambda self: int(self.ram[0x00b5])
-)
-
 from stable_baselines3.common.vec_env import DummyVecEnv, VecFrameStack
 
 
 # ---------------------------------------------------------------------------
-# Custom gym wrappers
+# Custom gymnasium wrappers
 # ---------------------------------------------------------------------------
-# We write these by hand instead of pulling from gym.wrappers because
-# gym-super-mario-bros pins an older gym version where some wrappers
-# don't exist yet, and writing them is a good learning exercise.
+# We write these by hand instead of pulling from gymnasium.wrappers because
+# writing them is a good learning exercise and keeps the pipeline explicit.
 # ---------------------------------------------------------------------------
 
 
@@ -70,8 +40,8 @@ class SkipFrame(gym.Wrapper):
     """Return only every ``skip``-th frame.
 
     The selected action is repeated for ``skip`` consecutive steps and the
-    rewards are summed.  If the episode terminates mid-skip the loop breaks
-    immediately so no post-done frames are consumed.
+    rewards are summed.  If the episode terminates or is truncated mid-skip
+    the loop breaks immediately so no post-done frames are consumed.
 
     Parameters
     ----------
@@ -91,11 +61,11 @@ class SkipFrame(gym.Wrapper):
         action = int(action)
         total_reward = 0.0
         for _ in range(self._skip):
-            obs, reward, done, info = self.env.step(action)
+            obs, reward, terminated, truncated, info = self.env.step(action)
             total_reward += reward
-            if done:
+            if terminated or truncated:
                 break
-        return obs, total_reward, done, info
+        return obs, total_reward, terminated, truncated, info
 
 
 class GrayScaleObservation(gym.ObservationWrapper):
@@ -159,49 +129,6 @@ class ResizeObservation(gym.ObservationWrapper):
         return resized.astype(np.uint8)
 
 
-class GymnasiumBridge(gymnasium.Env):
-    """Lightweight adapter: old-style ``gym.Env`` → ``gymnasium.Env``.
-
-    SB3 ≥ 2.x requires environments that follow the Gymnasium API
-    (5-tuple ``step``, 2-tuple ``reset``).  ``gym-super-mario-bros``
-    still exposes the legacy 4-tuple interface, so this wrapper
-    translates between the two without copying observation data.
-
-    Conversion rules
-    ~~~~~~~~~~~~~~~~
-    * ``reset()`` → ``(obs, {})``
-    * ``step(a)`` → ``(obs, float(reward), bool(done), False, info)``
-
-    The ``truncated`` field is always ``False`` because NES episodes
-    end only on terminal game-over (never time-limited truncation).
-    """
-
-    def __init__(self, env: gym.Env):
-        super().__init__()
-        self.env = env
-
-        # Mirror spaces using gymnasium.spaces so SB3 type-checks pass.
-        old_obs = env.observation_space
-        self.observation_space = gym_spaces.Box(
-            low=old_obs.low, high=old_obs.high,
-            shape=old_obs.shape, dtype=old_obs.dtype,
-        )
-        old_act = env.action_space
-        self.action_space = gym_spaces.Discrete(old_act.n)
-
-    def reset(self, *, seed=None, options=None):
-        obs = self.env.reset()
-        return obs, {}
-
-    def step(self, action):
-        obs, reward, done, info = self.env.step(action)
-        return obs, float(reward), bool(done), False, info
-
-    def render(self, *args, **kwargs):
-        return self.env.render()
-
-    def close(self):
-        return self.env.close()
 
 
 # ---------------------------------------------------------------------------
@@ -250,9 +177,6 @@ def make_env() -> VecFrameStack:
         # 5. Resize: (240, 256, 1) → (84, 84, 1)
         #    Matches the input size from the Nature DQN paper
         env = ResizeObservation(env, size=84)
-
-        # 6. Bridge to gymnasium API for SB3 ≥ 2.x compatibility
-        env = GymnasiumBridge(env)
 
         return env
 
