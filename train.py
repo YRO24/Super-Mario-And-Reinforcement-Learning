@@ -248,7 +248,7 @@ def main() -> None:
     print("=" * 64)
 
     # --- Environment ---------------------------------------------------------
-    env = make_env()
+    env = make_env(render_mode=None)
     print(f"\n  Observation space : {env.observation_space.shape}")
     print(f"  Action space      : {env.action_space}\n")
 

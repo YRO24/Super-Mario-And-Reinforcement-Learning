@@ -136,12 +136,19 @@ class ResizeObservation(gym.ObservationWrapper):
 # ---------------------------------------------------------------------------
 
 
-def make_env() -> VecFrameStack:
+def make_env(render_mode: str | None = "rgb_array") -> VecFrameStack:
     """Create a fully wrapped, SB3-compatible Super Mario Bros environment.
 
     The returned environment has:
         - Action space : Discrete(7)  — SIMPLE_MOVEMENT
         - Observation  : Box(84, 84, 4, uint8)  — 4 stacked grayscale frames
+
+    Parameters
+    ----------
+    render_mode : str | None
+        Render mode forwarded to ``gym_super_mario_bros.make()``.
+        Use ``"rgb_array"`` for evaluation (frames rendered to numpy arrays
+        and displayed via OpenCV) or ``None`` for headless training.
 
     Returns
     -------
@@ -161,7 +168,9 @@ def make_env() -> VecFrameStack:
         """Build and return a single wrapped Mario environment."""
 
         # 1. Create base NES environment — SuperMarioBros World 1-1
-        env = gym_super_mario_bros.make("SuperMarioBros-1-1-v0")
+        env = gym_super_mario_bros.make(
+            "SuperMarioBros-1-1-v0", render_mode=render_mode,
+        )
 
         # 2. Restrict action space: 256 raw NES button combos → 7 meaningful actions
         env = JoypadSpace(env, SIMPLE_MOVEMENT)
