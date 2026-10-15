@@ -136,7 +136,10 @@ class ResizeObservation(gym.ObservationWrapper):
 # ---------------------------------------------------------------------------
 
 
-def make_env(render_mode: str | None = "rgb_array") -> VecFrameStack:
+def make_env(
+    env_id: str = "SuperMarioBros-1-1-v0",
+    render_mode: str | None = "rgb_array",
+) -> VecFrameStack:
     """Create a fully wrapped, SB3-compatible Super Mario Bros environment.
 
     The returned environment has:
@@ -145,6 +148,10 @@ def make_env(render_mode: str | None = "rgb_array") -> VecFrameStack:
 
     Parameters
     ----------
+    env_id : str
+        Gymnasium environment ID to create (e.g.
+        ``"SuperMarioBros-1-1-v0"`` for a fixed stage, or
+        ``"SuperMarioBrosRandomStages-v0"`` for randomised stages).
     render_mode : str | None
         Render mode forwarded to ``gym_super_mario_bros.make()``.
         Use ``"rgb_array"`` for evaluation (frames rendered to numpy arrays
@@ -159,7 +166,7 @@ def make_env(render_mode: str | None = "rgb_array") -> VecFrameStack:
     Example
     -------
     >>> from env_setup import make_env
-    >>> env = make_env()
+    >>> env = make_env("SuperMarioBrosRandomStages-v0")
     >>> obs = env.reset()
     >>> print(obs.shape)   # (1, 84, 84, 4)
     """
@@ -167,9 +174,9 @@ def make_env(render_mode: str | None = "rgb_array") -> VecFrameStack:
     def _init() -> gym.Env:
         """Build and return a single wrapped Mario environment."""
 
-        # 1. Create base NES environment — SuperMarioBros World 1-1
+        # 1. Create base NES environment
         env = gym_super_mario_bros.make(
-            "SuperMarioBros-1-1-v0", render_mode=render_mode,
+            env_id, render_mode=render_mode,
         )
 
         # 2. Restrict action space: 256 raw NES button combos → 7 meaningful actions

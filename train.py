@@ -10,8 +10,8 @@ Supports four algorithm choices via ``--algo``:
 
 Usage
 -----
-    python train.py --algo dqn  --timesteps 1000000
-    python train.py --algo ddqn --timesteps 1000000
+    python train.py --algo dqn  --timesteps 5000000
+    python train.py --algo ddqn --timesteps 5000000
     python train.py --algo ppo  --timesteps 500000 --save_dir ./my_models
 
 Outputs
@@ -147,7 +147,7 @@ DQN_HYPERPARAMS = {
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments for the training run."""
     parser = argparse.ArgumentParser(
-        description="Train an RL agent to play Super Mario Bros (World 1-1).",
+        description="Train an RL agent to play Super Mario Bros.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
@@ -158,9 +158,17 @@ def parse_args() -> argparse.Namespace:
         help="RL algorithm to use.",
     )
     parser.add_argument(
+        "--env_id",
+        type=str,
+        default="SuperMarioBrosRandomStages-v0",
+        help="Gymnasium environment ID (e.g. 'SuperMarioBros-1-1-v0' for a "
+             "fixed stage, or 'SuperMarioBrosRandomStages-v0' for randomised "
+             "stage training).",
+    )
+    parser.add_argument(
         "--timesteps",
         type=int,
-        default=1_000_000,
+        default=5_000_000,
         help="Total environment steps to train for.",
     )
     parser.add_argument(
@@ -223,6 +231,7 @@ def build_model(algo: str, env, log_dir: str):
 def main() -> None:
     args = parse_args()
     algo       = args.algo
+    env_id     = args.env_id
     timesteps  = args.timesteps
     save_dir   = args.save_dir
 
@@ -240,6 +249,7 @@ def main() -> None:
     print("  Super Mario Bros — RL Training")
     print("=" * 64)
     print(f"  Algorithm   : {algo.upper()}")
+    print(f"  Environment : {env_id}")
     print(f"  Timesteps   : {timesteps:,}")
     print(f"  Save dir    : {save_dir}")
     print(f"  Checkpoints : {checkpoint_dir}")
@@ -248,7 +258,7 @@ def main() -> None:
     print("=" * 64)
 
     # --- Environment ---------------------------------------------------------
-    env = make_env(render_mode=None)
+    env = make_env(env_id=env_id, render_mode=None)
     print(f"\n  Observation space : {env.observation_space.shape}")
     print(f"  Action space      : {env.action_space}\n")
 
