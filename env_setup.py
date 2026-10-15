@@ -137,10 +137,15 @@ class ResizeObservation(gym.ObservationWrapper):
 
 
 def make_env(
-    env_id: str = "SuperMarioBros-1-1-v0",
+    env_ids: list[str] | str = "SuperMarioBros-1-1-v0",
     render_mode: str | None = "rgb_array",
 ) -> VecFrameStack:
     """Create a fully wrapped, SB3-compatible Super Mario Bros environment.
+
+    When multiple ``env_ids`` are provided each stage runs as a separate
+    sub-environment inside a single ``DummyVecEnv``.  The agent collects
+    experience from *all* stages in parallel, which prevents overfitting
+    to a single level's layout.
 
     The returned environment has:
         - Action space : Discrete(7)  — SIMPLE_MOVEMENT
@@ -148,10 +153,11 @@ def make_env(
 
     Parameters
     ----------
-    env_id : str
-        Gymnasium environment ID to create (e.g.
-        ``"SuperMarioBros-1-1-v0"`` for a fixed stage, or
-        ``"SuperMarioBrosRandomStages-v0"`` for randomised stages).
+    env_ids : list[str] | str
+        One or more Gymnasium environment IDs to create.  Pass a single
+        string for single-stage training, or a list for multi-stage
+        generalisation training (e.g.
+        ``["SuperMarioBros-1-1-v0", "SuperMarioBros-2-1-v0"]``).
     render_mode : str | None
         Render mode forwarded to ``gym_super_mario_bros.make()``.
         Use ``"rgb_array"`` for evaluation (frames rendered to numpy arrays
@@ -166,41 +172,49 @@ def make_env(
     Example
     -------
     >>> from env_setup import make_env
-    >>> env = make_env("SuperMarioBrosRandomStages-v0")
+    >>> env = make_env(["SuperMarioBros-1-1-v0", "SuperMarioBros-2-1-v0"])
     >>> obs = env.reset()
-    >>> print(obs.shape)   # (1, 84, 84, 4)
+    >>> print(obs.shape)   # (2, 84, 84, 4)
     """
 
-    def _init() -> gym.Env:
-        """Build and return a single wrapped Mario environment."""
+    # Accept a single string for convenience / backward compatibility
+    if isinstance(env_ids, str):
+        env_ids = [env_ids]
 
-        # 1. Create base NES environment
-        env = gym_super_mario_bros.make(
-            env_id, render_mode=render_mode,
-        )
+    def _make_init(stage_id: str):
+        """Return a factory closure for *one* wrapped Mario stage."""
 
-        # 2. Restrict action space: 256 raw NES button combos → 7 meaningful actions
-        env = JoypadSpace(env, SIMPLE_MOVEMENT)
+        def _init() -> gym.Env:
+            # 1. Create base NES environment for this stage
+            env = gym_super_mario_bros.make(
+                stage_id, render_mode=render_mode,
+            )
 
-        # 3. Frame skip: repeat each action for 4 frames, sum rewards
-        #    This reduces effective FPS from 60 → 15, matching human reaction time
-        env = SkipFrame(env, skip=4)
+            # 2. Restrict action space: 256 raw NES button combos → 7 meaningful actions
+            env = JoypadSpace(env, SIMPLE_MOVEMENT)
 
-        # 4. Grayscale: (240, 256, 3) → (240, 256, 1)
-        #    Color carries almost no decision-relevant information in Mario
-        env = GrayScaleObservation(env)
+            # 3. Frame skip: repeat each action for 4 frames, sum rewards
+            #    This reduces effective FPS from 60 → 15, matching human reaction time
+            env = SkipFrame(env, skip=4)
 
-        # 5. Resize: (240, 256, 1) → (84, 84, 1)
-        #    Matches the input size from the Nature DQN paper
-        env = ResizeObservation(env, size=84)
+            # 4. Grayscale: (240, 256, 3) → (240, 256, 1)
+            #    Color carries almost no decision-relevant information in Mario
+            env = GrayScaleObservation(env)
 
-        return env
+            # 5. Resize: (240, 256, 1) → (84, 84, 1)
+            #    Matches the input size from the Nature DQN paper
+            env = ResizeObservation(env, size=84)
+
+            return env
+
+        return _init
 
     # --- Vectorize for SB3 ---------------------------------------------------
 
     # DummyVecEnv wraps a list of env-factory callables into a single VecEnv.
-    # We use a single env (n_envs=1) for vanilla DQN; scale up later if needed.
-    env = DummyVecEnv([_init])
+    # One sub-env per stage — the agent collects experience from all of them
+    # in parallel each step, preventing single-level overfitting.
+    env = DummyVecEnv([_make_init(sid) for sid in env_ids])
 
     # Stack 4 consecutive frames along the channel axis (channels-last).
     # Observation shape: (n_envs, 84, 84, 4)
@@ -214,9 +228,11 @@ def make_env(
 # Quick smoke test (won't run on import)
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
-    env = make_env()
+    stages = ["SuperMarioBros-1-1-v0", "SuperMarioBros-2-1-v0"]
+    env = make_env(stages)
     obs = env.reset()
-    print(f"Observation shape : {obs.shape}")       # (1, 84, 84, 4)
+    print(f"Stages            : {stages}")
+    print(f"Observation shape : {obs.shape}")       # (2, 84, 84, 4)
     print(f"Action space      : {env.action_space}") # Discrete(7)
     print("Environment created successfully ✓")
     env.close()

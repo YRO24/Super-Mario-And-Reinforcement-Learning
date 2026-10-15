@@ -139,6 +139,22 @@ DQN_HYPERPARAMS = {
     "train_freq":             4,           # gradient step every 4 env steps
 }
 
+# ---------------------------------------------------------------------------
+# Multi-stage training — generalisation via parallel environments
+# ---------------------------------------------------------------------------
+# Instead of the removed SuperMarioBrosRandomStages env, we train on an
+# explicit list of stages running in parallel inside a single DummyVecEnv.
+# The agent collects experience from ALL stages every step, preventing it
+# from memorising a single level's layout.
+# ---------------------------------------------------------------------------
+
+TRAINING_STAGES: list[str] = [
+    "SuperMarioBros-1-1-v0",
+    "SuperMarioBros-1-2-v0",
+    "SuperMarioBros-1-3-v0",
+    "SuperMarioBros-2-1-v0",
+]
+
 
 # ---------------------------------------------------------------------------
 # CLI
@@ -156,14 +172,6 @@ def parse_args() -> argparse.Namespace:
         choices=["dqn", "ddqn", "ppo", "a2c"],
         default="dqn",
         help="RL algorithm to use.",
-    )
-    parser.add_argument(
-        "--env_id",
-        type=str,
-        default="SuperMarioBrosRandomStages-v0",
-        help="Gymnasium environment ID (e.g. 'SuperMarioBros-1-1-v0' for a "
-             "fixed stage, or 'SuperMarioBrosRandomStages-v0' for randomised "
-             "stage training).",
     )
     parser.add_argument(
         "--timesteps",
@@ -231,7 +239,6 @@ def build_model(algo: str, env, log_dir: str):
 def main() -> None:
     args = parse_args()
     algo       = args.algo
-    env_id     = args.env_id
     timesteps  = args.timesteps
     save_dir   = args.save_dir
 
@@ -246,10 +253,11 @@ def main() -> None:
     # --- Banner --------------------------------------------------------------
     run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
     print("=" * 64)
-    print("  Super Mario Bros — RL Training")
+    print("  Super Mario Bros — RL Training (multi-stage)")
     print("=" * 64)
     print(f"  Algorithm   : {algo.upper()}")
-    print(f"  Environment : {env_id}")
+    print(f"  Stages      : {TRAINING_STAGES}")
+    print(f"  Num envs    : {len(TRAINING_STAGES)}")
     print(f"  Timesteps   : {timesteps:,}")
     print(f"  Save dir    : {save_dir}")
     print(f"  Checkpoints : {checkpoint_dir}")
@@ -258,7 +266,7 @@ def main() -> None:
     print("=" * 64)
 
     # --- Environment ---------------------------------------------------------
-    env = make_env(env_id=env_id, render_mode=None)
+    env = make_env(env_ids=TRAINING_STAGES, render_mode=None)
     print(f"\n  Observation space : {env.observation_space.shape}")
     print(f"  Action space      : {env.action_space}\n")
 
